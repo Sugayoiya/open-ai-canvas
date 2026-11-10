@@ -399,6 +399,12 @@ CANVAS_BACKEND_DATA_DIR=/明确的数据目录 ./migrate-schema repair-canvas-re
 
 服务端校验最终售价和模型/规格版本，不重新计算覆盖手工价格。价格快照过期必须刷新后重试。所有模型与价格档在单事务中更新，增加价格版本、失效目录缓存；无效配置、归属错误、超限或并发版本冲突均不部分提交。不改变成本、规格、计费方式和启停状态；未启用规格保持原值。此接口不新增数据表或迁移，不追溯修改已下单的计费快照。
 
+### 渠道上游模型目录
+
+`POST /admin/channels/:id/models/fetch` 仅返回上游模型预览，不创建或启用渠道模型；确认导入时仍重新读取上游目录并校验所选模型。
+
+系统渠道只保存连接信息，不要求填写默认模型协议。Base URL 为 `generativelanguage.googleapis.com` 的根地址、`/v1beta` 或 `/v1` 时，拉取目录自动使用 Gemini 原生协议和 `x-goog-api-key` 请求头；根地址默认访问 `/v1beta/models`，已填写的版本前缀保留。显式 `/v1beta/openai` 地址仍按 OpenAI 兼容协议使用 Bearer 鉴权并访问 `/v1beta/openai/models`。其他服务商不按域名相似或模型名称推断为 Gemini，原有请求头和出站安全校验保持不变。
+
 ### 用户模型目录
 
 `GET /model-catalog` 固定返回 `source=system`，直接查询所有启用系统渠道下的渠道模型，目录数据在 `channels[].models[]`，`models` 固定为空数组。不受逻辑模型开关影响，不反查逻辑模型或供应线路。每项的 `modelKey` 是调用标识，`displayName` 是一级分组展示名（未设置时归入 `未分类`），`icon` 是模型图标键，`channelLabel` 是二级渠道展示名。后台渠道模型创建与更新请求使用相同的 `channelLabel` 字段；服务端去除首尾空白后限制为 80 字，空值或与上游模型 ID 相同的值表示不固化该名称，读取时回退到上游模型 ID（默认与上游 ID 保持一致，上游改名时自动跟随）。

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -126,11 +127,18 @@ func (s *Service) FetchChannelModelCatalog(ctx context.Context, actor *model.Use
 	}
 
 	target := apiURL(baseURL, "/models")
-	if apiFormat == "gemini" {
-		if !strings.HasSuffix(strings.ToLower(baseURL), "/v1beta") {
-			baseURL += "/v1beta"
+	// 系统渠道不保存默认模型协议；Google 原生地址必须自行选择目录协议，
+	// 不能沿用渠道记录中的 OpenAI 占位值。显式 OpenAI 兼容入口仍用 Bearer。
+	if parsed, err := url.Parse(baseURL); err == nil && strings.EqualFold(parsed.Hostname(), "generativelanguage.googleapis.com") && apiFormat == "openai" {
+		switch strings.TrimRight(parsed.Path, "/") {
+		case "", "/v1", "/v1beta":
+			apiFormat = "gemini"
+		case "/v1beta/openai":
+			target = baseURL + "/models"
 		}
-		target = baseURL + "/models"
+	}
+	if apiFormat == "gemini" {
+		target = apiURLWithDefaultPrefix(baseURL, "/models", "/v1beta")
 	}
 	if _, err := ValidateOutboundURL(target); err != nil {
 		return nil, err
